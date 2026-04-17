@@ -1,0 +1,23 @@
+[
+    {
+        "id": 1,
+        "title": "Мастер и Маргарита",
+        "author": "Булгаков",
+        "year": 1967,
+        "available": true
+    },
+    {
+        "id": 2,
+        "title": "Преступление и наказание",
+        "author": "Достоевский",
+        "year": 1866,
+        "available": false
+    },
+    {
+        "id": 3,
+        "title": "Квакозябра",
+        "author": "Антон лапа",
+        "year": 2018,
+        "available": true
+    }
+]
