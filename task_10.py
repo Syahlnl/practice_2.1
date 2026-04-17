@@ -1,426 +1,137 @@
 import re
-from typing import Any, Dict, List, Union
 
 
-class XMLSerializer:
-    """Класс для сериализации и десериализации XML без использования сторонних библиотек."""
+def validate_xml(xml_str):
+    lines = xml_str.splitlines()
+    stack = []
+    tag_re = re.compile(r'<(\/?)([\w\-\.]+)([^>]*)>')
 
-    @staticmethod
-    def _escape_xml(text: str) -> str:
-        """Замена специальных символов на XML-сущности."""
-        replacements = {
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&apos;"
-        }
-        for char, entity in replacements.items():
-            text = text.replace(char, entity)
-        return text
+    for i, line in enumerate(lines, 1):
+        for match in tag_re.finditer(line):
+            closing = match.group(1)
+            tag_name = match.group(2)
+            attrs = match.group(3).strip()
 
-    @staticmethod
-    def _unescape_xml(text: str) -> str:
-        """Восстановление символов из XML-сущностей."""
-        replacements = {
-            "&amp;": "&",
-            "&lt;": "<",
-            "&gt;": ">",
-            "&quot;": '"',
-            "&apos;": "'"
-        }
-        for entity, char in replacements.items():
-            text = text.replace(entity, char)
-        return text
+            if attrs and not re.match(r'^([\w\-\.]+\s*=\s*"[^"]*"\s*)*$', attrs):
+                print(f"Ошибка в строке {i}: неверные атрибуты у тега <{tag_name}>")
+                return False
 
-    @staticmethod
-    def serialize(obj: Any, root_tag: str = "root", indent: int = 2) -> str:
-        """
-        Сериализует Python-объект в XML-строку.
+            if closing == '/':
+                if not stack or stack[-1] != tag_name:
+                    print(f"Ошибка в строке {i}: лишний закрывающий тег </{tag_name}>")
+                    return False
+                stack.pop()
+            elif match.group(0).endswith('/>'):
+                continue
+            else:
+                stack.append(tag_name)
 
-        Args:
-            obj: Объект для сериализации (dict, list, str, int, float, bool, None)
-            root_tag: Имя корневого тега
-            indent: Количество пробелов для отступа (0 - без форматирования)
+    if stack:
+        print(f"Ошибка: не закрыты теги {', '.join(stack)}")
+        return False
 
-        Returns:
-            XML-строка
-        """
-        def _serialize(data: Any, tag: str, level: int) -> str:
-            spaces = " " * (indent * level) if indent > 0 else ""
-            next_spaces = " " * (indent * (level + 1)) if indent > 0 else ""
+    print("XML валиден")
+    return True
 
-            # Обработка примитивных типов
-            if isinstance(data, (str, int, float, bool, type(None))):
-                if data is None:
-                    value = "null"
-                elif isinstance(data, bool):
-                    value = "true" if data else "false"
+
+def serialize_to_xml(obj, root_tag="root", indent=2):
+    def _serialize(data, level=0):
+        spaces = " " * (level * indent)
+        if isinstance(data, dict):
+            result = []
+            for key, value in data.items():
+                if isinstance(value, list):
+                    for item in value:
+                        result.append(f"{spaces}<{key}>")
+                        result.append(_serialize(item, level + 1))
+                        result.append(f"{spaces}</{key}>")
+                elif isinstance(value, dict):
+                    result.append(f"{spaces}<{key}>")
+                    result.append(_serialize(value, level + 1))
+                    result.append(f"{spaces}</{key}>")
+                elif value is None:
+                    result.append(f"{spaces}<{key}/>")
                 else:
-                    value = str(data)
-                if indent > 0:
-                    return f"{spaces}<{tag}>{XMLSerializer._escape_xml(value)}</{tag}>\n"
-                return f"<{tag}>{XMLSerializer._escape_xml(value)}</{tag}>"
+                    value_str = str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                    result.append(f"{spaces}<{key}>{value_str}</{key}>")
+            return "\n".join(result)
+        elif isinstance(data, list):
+            return "\n".join(_serialize(item, level) for item in data)
+        else:
+            return f"{spaces}{str(data)}"
 
-            # Обработка списка
-            if isinstance(data, list):
-                result = ""
-                for item in data:
-                    result += _serialize(item, tag, level)
-                return result
+    xml_lines = [f"<{root_tag}>", _serialize(obj, 1), f"</{root_tag}>"]
+    return "\n".join(xml_lines)
 
-            # Обработка словаря
-            if isinstance(data, dict):
-                attributes = data.get("@attributes", {})
-                attr_str = ""
-                for attr_name, attr_val in attributes.items():
-                    attr_str += f' {attr_name}="{XMLSerializer._escape_xml(str(attr_val))}"'
 
-                text_content = data.get("#text", "")
-                children = {k: v for k, v in data.items() if not k.startswith("@") and k != "#text"}
+def deserialize_from_xml(xml_str):
+    xml_str = re.sub(r'>\s+<', '><', xml_str.strip())
 
-                if indent > 0:
-                    opening_tag = f"{spaces}<{tag}{attr_str}>"
+    def _parse_element(tag_content):
+        result = {}
+        pattern = r'<(\/?)([\w\-\.]+)([^>]*)>'
+        pos = 0
+        while pos < len(tag_content):
+            match = re.search(pattern, tag_content[pos:])
+            if not match:
+                break
+
+            tag_name = match.group(2)
+            start = pos + match.start()
+            end = pos + match.end()
+
+            if tag_name.startswith('/'):
+                break
+
+            next_match = re.search(pattern, tag_content[end:])
+            if next_match and next_match.group(1) == '/' and next_match.group(2) == tag_name:
+                inner_content = tag_content[end:end + next_match.start()]
+                value = _parse_element(inner_content) if '<' in inner_content else inner_content.strip()
+                if tag_name in result:
+                    if not isinstance(result[tag_name], list):
+                        result[tag_name] = [result[tag_name]]
+                    result[tag_name].append(value)
                 else:
-                    opening_tag = f"<{tag}{attr_str}>"
+                    result[tag_name] = value
+                pos = end + next_match.end()
+            else:
+                pos = end
 
-                # Если есть дочерние элементы
-                if children:
-                    result = opening_tag + "\n"
-                    for child_tag, child_data in children.items():
-                        result += _serialize(child_data, child_tag, level + 1)
-                    if indent > 0:
-                        result += f"{spaces}</{tag}>\n"
-                    else:
-                        result += f"</{tag}>"
-                    return result
-                # Если есть только текстовое содержимое
-                elif text_content or text_content == "":
-                    if indent > 0:
-                        return f"{opening_tag}{XMLSerializer._escape_xml(str(text_content))}</{tag}>\n"
-                    return f"{opening_tag}{XMLSerializer._escape_xml(str(text_content))}</{tag}>"
-                # Пустой элемент
-                else:
-                    if indent > 0:
-                        return f"{spaces}<{tag}{attr_str} />\n"
-                    return f"<{tag}{attr_str} />"
+        return result if result else tag_content.strip()
 
-            raise TypeError(f"Неподдерживаемый тип для сериализации: {type(data)}")
-
-        xml_declaration = '<?xml version="1.0" encoding="UTF-8"?>\n'
-        return xml_declaration + _serialize(obj, root_tag, 0).rstrip()
-
-    @staticmethod
-    def deserialize(xml_str: str) -> Dict[str, Any]:
-        """
-        Десериализует XML-строку в Python-объект.
-
-        Args:
-            xml_str: XML-строка для парсинга
-
-        Returns:
-            Python-объект (dict)
-
-        Raises:
-            ValueError: При синтаксических ошибках в XML
-        """
-        xml_str = xml_str.strip()
-        lines = xml_str.split('\n')
-
-        class XMLParser:
-            def __init__(self, content: str, lines: List[str]):
-                self.content = content
-                self.lines = lines
-                self.pos = 0
-                self.line_num = 1
-
-            def error(self, msg: str) -> None:
-                """Выброс ошибки с указанием строки."""
-                raise ValueError(f"Ошибка на строке {self.line_num}: {msg}")
-
-            def parse(self) -> Dict[str, Any]:
-                """Основной метод парсинга."""
-                # Пропускаем XML-декларацию
-                if self.content.startswith('<?xml'):
-                    end = self.content.find('?>')
-                    if end == -1:
-                        self.error("Незакрытая XML-декларация")
-                    self.pos = end + 2
-                    self._update_line_num()
-
-                self._skip_whitespace()
-                if self.pos >= len(self.content) or self.content[self.pos] != '<':
-                    self.error("Ожидался открывающий тег")
-
-                tag, attrs, pos = self._parse_opening_tag()
-                self.pos = pos
-                result, self.pos = self._parse_element_content(tag, attrs)
-                return {tag: result}
-
-            def _update_line_num(self) -> None:
-                """Обновление номера строки на основе позиции."""
-                self.line_num = self.content[:self.pos].count('\n') + 1
-
-            def _skip_whitespace(self) -> None:
-                """Пропуск пробельных символов."""
-                while self.pos < len(self.content) and self.content[self.pos] in ' \t\n\r':
-                    if self.content[self.pos] == '\n':
-                        self.line_num += 1
-                    self.pos += 1
-
-            def _parse_opening_tag(self) -> tuple:
-                """Парсинг открывающего тега и его атрибутов."""
-                if self.pos >= len(self.content) or self.content[self.pos] != '<':
-                    self.error("Ожидался символ '<'")
-
-                self.pos += 1
-                start = self.pos
-                while self.pos < len(self.content) and self.content[self.pos] not in ' >/':
-                    self.pos += 1
-
-                if start == self.pos:
-                    self.error("Ожидалось имя тега")
-
-                tag = self.content[start:self.pos]
-
-                # Парсинг атрибутов
-                attrs = {}
-                while self.pos < len(self.content) and self.content[self.pos] != '>' and self.content[self.pos] != '/':
-                    self._skip_whitespace()
-                    if self.content[self.pos] == '>' or self.content[self.pos] == '/':
-                        break
-
-                    # Имя атрибута
-                    attr_start = self.pos
-                    while self.pos < len(self.content) and self.content[self.pos] not in ' =/>':
-                        self.pos += 1
-                    attr_name = self.content[attr_start:self.pos]
-
-                    self._skip_whitespace()
-                    if self.pos >= len(self.content) or self.content[self.pos] != '=':
-                        self.error(f"Ожидался '=' после атрибута '{attr_name}'")
-                    self.pos += 1
-
-                    self._skip_whitespace()
-                    if self.pos >= len(self.content) or self.content[self.pos] not in '"\'':
-                        self.error("Ожидались кавычки вокруг значения атрибута")
-                    quote = self.content[self.pos]
-                    self.pos += 1
-
-                    val_start = self.pos
-                    while self.pos < len(self.content) and self.content[self.pos] != quote:
-                        self.pos += 1
-                    if self.pos >= len(self.content):
-                        self.error("Незакрытые кавычки в значении атрибута")
-                    attr_value = self.content[val_start:self.pos]
-                    self.pos += 1
-
-                    attrs[attr_name] = XMLSerializer._unescape_xml(attr_value)
-
-                # Самозакрывающийся тег
-                if self.pos < len(self.content) and self.content[self.pos] == '/':
-                    self.pos += 1
-                    if self.pos >= len(self.content) or self.content[self.pos] != '>':
-                        self.error("Ожидался '>' после '/'")
-                    self.pos += 1
-                    return tag, attrs, self.pos
-
-                if self.pos >= len(self.content) or self.content[self.pos] != '>':
-                    self.error("Ожидался '>' в конце открывающего тега")
-                self.pos += 1
-                return tag, attrs, self.pos
-
-            def _parse_element_content(self, tag: str, attrs: Dict) -> tuple:
-                """Парсинг содержимого элемента."""
-                self._skip_whitespace()
-                content = ""
-                children = {}
-                current_tag = None
-
-                while self.pos < len(self.content):
-                    if self.content.startswith('</', self.pos):
-                        # Закрывающий тег
-                        close_pos = self.pos + 2
-                        close_start = close_pos
-                        while close_pos < len(self.content) and self.content[close_pos] != '>':
-                            close_pos += 1
-                        close_tag = self.content[close_start:close_pos]
-                        if close_tag != tag:
-                            self.error(f"Ожидался закрывающий тег </{tag}>, получен </{close_tag}>")
-                        self.pos = close_pos + 1
-                        self._update_line_num()
-                        break
-
-                    elif self.content.startswith('<?', self.pos):
-                        # Пропуск инструкций
-                        end = self.content.find('?>', self.pos)
-                        if end == -1:
-                            self.error("Незакрытая инструкция")
-                        self.pos = end + 2
-                        self._update_line_num()
-                        continue
-
-                    elif self.content.startswith('<!--', self.pos):
-                        # Пропуск комментариев
-                        end = self.content.find('-->', self.pos)
-                        if end == -1:
-                            self.error("Незакрытый комментарий")
-                        self.pos = end + 3
-                        self._update_line_num()
-                        continue
-
-                    elif self.content[self.pos] == '<':
-                        # Открывающий тег дочернего элемента
-                        child_tag, child_attrs, self.pos = self._parse_opening_tag()
-                        child_data, self.pos = self._parse_element_content(child_tag, child_attrs)
-
-                        if child_tag not in children:
-                            children[child_tag] = child_data
-                        else:
-                            # Преобразование в список для нескольких элементов с одинаковым тегом
-                            if not isinstance(children[child_tag], list):
-                                children[child_tag] = [children[child_tag]]
-                            children[child_tag].append(child_data)
-                    else:
-                        # Текстовое содержимое
-                        text_start = self.pos
-                        while self.pos < len(self.content) and self.content[self.pos] != '<':
-                            if self.content[self.pos] == '\n':
-                                self.line_num += 1
-                            self.pos += 1
-                        content += self.content[text_start:self.pos]
-
-                content = content.strip()
-                result = {}
-
-                if attrs:
-                    result["@attributes"] = attrs
-                if children:
-                    result.update(children)
-                if content:
-                    if children or attrs:
-                        result["#text"] = XMLSerializer._unescape_xml(content)
-                    else:
-                        result = XMLSerializer._unescape_xml(content)
-
-                return result if result else ("" if not children and not attrs else result), self.pos
-
-        parser = XMLParser(xml_str, lines)
-        return parser.parse()
-
-    @staticmethod
-    def validate(xml_str: str) -> bool:
-        """
-        Валидация XML-строки.
-
-        Args:
-            xml_str: XML-строка для проверки
-
-        Returns:
-            True если валиден, иначе False
-        """
-        try:
-            XMLSerializer.deserialize(xml_str)
-            print("XML валиден")
-            return True
-        except ValueError as e:
-            print(f"Ошибка валидации: {e}")
-            return False
-
-    @staticmethod
-    def deserialize_file(filepath: str) -> Dict[str, Any]:
-        """Десериализация XML из файла."""
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                return XMLSerializer.deserialize(f.read())
-        except FileNotFoundError:
-            raise ValueError(f"Файл не найден: {filepath}")
+    root_match = re.search(r'<([\w\-\.]+)>(.*)</\1>', xml_str, re.DOTALL)
+    if root_match:
+        return _parse_element(root_match.group(2))
+    return {}
 
 
-# Демонстрация работы
-def main():
-    print("=" * 60)
-    print("СЕРИАЛИЗАЦИЯ И ДЕСЕРИАЛИЗАЦИЯ XML")
-    print("=" * 60)
+def test_with_file(filepath):
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            xml_content = f.read()
 
-    # Тестовые объекты
-    test_objects = [
-        # Простой объект
-        {
-            "person": {
-                "@attributes": {"id": "123"},
-                "name": "John Doe",
-                "age": 30,
-                "city": "New York"
-            }
-        },
-        # Список однотипных элементов
-        {
-            "catalog": {
-                "book": [
-                    {"title": "XML Guide", "price": 19.99},
-                    {"title": "Python Basics", "price": 29.99}
-                ]
-            }
-        },
-        # Смешанное содержимое
-        {
-            "description": {
-                "#text": "This is a text with ",
-                "bold": "bold",
-                "#text2": " part."
-            }
-        }
-    ]
-
-    print("\n1. Сериализация в XML:")
-    print("-" * 40)
-    for i, obj in enumerate(test_objects, 1):
-        print(f"\nТест {i}:")
-        xml_str = XMLSerializer.serialize(obj, indent=2)
-        print(xml_str)
-        print("\nВалидация сгенерированного XML:")
-        XMLSerializer.validate(xml_str)
-
-    print("\n" + "=" * 60)
-    print("2. Десериализация из XML:")
-    print("-" * 40)
-
-    xml_samples = [
-        '<root><name>Alice</name><age>25</age><active>true</active></root>',
-        '<library><book id="1">1984</book><book id="2">Brave New World</book></library>',
-        '<response status="ok"><data><item>Value 1</item><item>Value 2</item></data></response>'
-    ]
-
-    for i, xml_str in enumerate(xml_samples, 1):
-        print(f"\nТест {i}:")
-        print(f"XML: {xml_str}")
-        try:
-            parsed = XMLSerializer.deserialize(xml_str)
-            print(f"Результат: {parsed}")
-            print("Валидация:", "✓" if XMLSerializer.validate(xml_str) else "✗")
-        except ValueError as e:
-            print(f"Ошибка: {e}")
-
-    print("\n" + "=" * 60)
-    print("3. Проверка на заведомо некорректных XML:")
-    print("-" * 40)
-
-    invalid_xmls = [
-        '<root><name>Test</root>',
-        '<root attr="value>',
-        '<root><child></child></root',
-        '<unclosed>text'
-    ]
-
-    for i, xml_str in enumerate(invalid_xmls, 1):
-        print(f"\nНекорректный XML {i}: {xml_str}")
-        XMLSerializer.validate(xml_str)
-
-    print("\n" + "=" * 60)
-    print("ГОТОВО")
-    print("=" * 60)
+        print(f"\n=== {filepath} ===")
+        print("Валидация:")
+        if validate_xml(xml_content):
+            print("Десериализация:")
+            obj = deserialize_from_xml(xml_content)
+            print(obj)
+            print("\nСериализация обратно:")
+            print(serialize_to_xml(obj, "root"))
+    except Exception as e:
+        print(f"Ошибка: {e}")
 
 
 if __name__ == "__main__":
-    main()
+    test_files = [
+        "resource/test_1.xml",
+        "resource/test_2.xml",
+        "resource/test_3.xml",
+        "resource/test_4.xml",
+        "resource/test_5.xml",
+        "resource/test_6.xml",
+        "resource/test_7.xml"
+    ]
+
+    for file in test_files:
+        test_with_file(file)
