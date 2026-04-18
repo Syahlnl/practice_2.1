@@ -58,7 +58,6 @@ def show_all_books(books):
         return
 
     print(f"{'ID':<5} {'Название':<30} {'Автор':<20} {'Год':<6} {'Доступна':<10}")
-    print("-" * 70)
     for book in books:
         status = "Да" if book['available'] else "Нет"
         print(f"{book['id']:<5} {book['title']:<30} {book['author']:<20} "
