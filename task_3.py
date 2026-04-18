@@ -54,12 +54,9 @@ def display_products(products):
         return
 
     print("\nТекущий список товаров:")
-    print("-" * 40)
     print(f"{'Название':<15} {'Цена':<10} {'Количество':<10}")
-    print("-" * 40)
     for product in products:
         print(f"{product['Название']:<15} {product['Цена']:<10} {product['Количество']:<10}")
-    print("-" * 40)
 
 
 def add_product(products):
@@ -99,7 +96,6 @@ def search_product(products):
     found = False
 
     print("\nРезультаты поиска:")
-    print("-" * 40)
     for product in products:
         if product['Название'].lower() == search_name:
             print(f"Найден товар: {product['Название']}, Цена: {product['Цена']}, "
@@ -109,7 +105,6 @@ def search_product(products):
 
     if not found:
         print(f"Товар '{search_name}' не найден")
-    print("-" * 40)
 
 
 def calculate_total_value(products):
@@ -128,7 +123,6 @@ def calculate_total_value(products):
             continue
 
     print(f"\nОбщая стоимость всех товаров на складе: {total} руб.")
-    print("-" * 40)
 
 
 def save_products(products):
@@ -160,12 +154,9 @@ def save_sorted_products(products):
         print(f"Отсортированные по цене товары сохранены в файл {SORTED_FILE_NAME}")
 
         print("\nОтсортированный список товаров по цене:")
-        print("-" * 40)
         print(f"{'Название':<15} {'Цена':<10} {'Количество':<10}")
-        print("-" * 40)
         for product in sorted_products:
             print(f"{product['Название']:<15} {product['Цена']:<10} {product['Количество']:<10}")
-        print("-" * 40)
 
     except Exception as error:
         print(f"Ошибка при сохранении отсортированного файла: {error}")
@@ -176,7 +167,6 @@ def main():
     products = read_products()
 
     while True:
-        print("\n" + "=" * 50)
         print("МЕНЮ:")
         print("1. Показать все товары")
         print("2. Добавить новый товар")
@@ -185,7 +175,6 @@ def main():
         print("5. Сохранить данные в файл")
         print("6. Сохранить отсортированные по цене товары")
         print("7. Выход")
-        print("=" * 50)
 
         choice = input("Выберите пункт меню (1-7): ").strip()
 

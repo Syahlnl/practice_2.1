@@ -44,9 +44,7 @@ def create_sample_file(filename="numbers.txt"):
 
 
 def main():
-    print("=" * 50)
     print("ПОИСК ЧИСЕЛ, КРАТНЫХ 7")
-    print("=" * 50)
 
     input_file = input("Введите имя входного файла: ").strip()
     if not input_file:
@@ -70,7 +68,6 @@ def main():
     denominator = 73 ** 2 + 29
     print(f"\nЗнаменатель: 73² + 29 = {denominator}")
     print("Операция: x * 100 / (73² + 29)")
-    print("-" * 50)
 
     process_file(input_file, output_file)
 

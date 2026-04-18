@@ -13,11 +13,9 @@ def show_last_operations(log_file="resource/calculator.log"):
 
         last_five = lines[-5:] if len(lines) >= 5 else lines
 
-        print("\n" + "=" * 50)
         print("Последние 5 операций:")
         for line in last_five:
             print(line.strip())
-        print("=" * 50)
 
     except FileNotFoundError:
         print("Лог-файл пока не создан")
@@ -53,9 +51,7 @@ def get_number(prompt):
 
 
 def calculate():
-    print("\n" + "=" * 50)
     print("Доступные операции: +, -, *, /, log, sin")
-    print("=" * 50)
 
     operation = input("Введите операцию: ").strip().lower()
 
@@ -134,11 +130,9 @@ def main():
     show_last_operations()
 
     while True:
-        print("\n" + "=" * 50)
         print("1. Выполнить операцию")
         print("2. Очистить лог-файл")
         print("3. Выйти")
-        print("=" * 50)
 
         choice = input("Выберите действие (1-3): ").strip()
 

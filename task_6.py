@@ -39,7 +39,6 @@ def parse_binary_file(filename):
 
         print(f"Версия файла: {version}")
         print(f"Количество записей: {records_count}")
-        print("-" * 50)
 
         records = []
         active_flags_count = 0
@@ -93,13 +92,10 @@ def show_statistics(data):
 
     avg_temperature = data['total_temperature'] / data['records_count']
 
-    print("\n" + "=" * 50)
     print("СТАТИСТИКА")
-    print("=" * 50)
     print(f"Средняя температура: {avg_temperature:.2f}°C")
     print(f"Количество активных флагов: {data['active_flags_count']}")
     print(f"Всего записей: {data['records_count']}")
-    print("=" * 50)
 
 
 def show_all_records(data):
@@ -107,15 +103,12 @@ def show_all_records(data):
         print("Нет записей для отображения")
         return
 
-    print("\n" + "=" * 80)
     print(f"{'№':<5} {'Timestamp':<20} {'ID':<10} {'Температура':<15} {'Флаги':<10}")
-    print("-" * 80)
 
     for i, record in enumerate(data['records']):
         flags_binary = format(record['flags'], '08b')
         print(f"{i + 1:<5} {record['timestamp']:<20} {record['id']:<10} "
               f"{record['temperature']:.2f}°C{'':<10} {flags_binary}")
-    print("=" * 80)
 
 
 def create_sample_binary_file(filename="resource/data.bin"):
@@ -189,9 +182,7 @@ def create_sample_binary_file(filename="resource/data.bin"):
 
 
 def main():
-    print("=" * 50)
     print("ПАРСЕР БИНАРНЫХ ФАЙЛОВ")
-    print("=" * 50)
 
     filename = "resource/data.bin"
 

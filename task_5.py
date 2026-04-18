@@ -57,14 +57,12 @@ def show_all_books(books):
         print("Библиотека пуста")
         return
 
-    print("\n" + "=" * 70)
     print(f"{'ID':<5} {'Название':<30} {'Автор':<20} {'Год':<6} {'Доступна':<10}")
     print("-" * 70)
     for book in books:
         status = "Да" if book['available'] else "Нет"
         print(f"{book['id']:<5} {book['title']:<30} {book['author']:<20} "
               f"{book['year']:<6} {status:<10}")
-    print("=" * 70)
 
 
 def search_books(books):
@@ -79,14 +77,11 @@ def search_books(books):
             found.append(book)
 
     if found:
-        print("\n" + "=" * 70)
         print(f"{'ID':<5} {'Название':<30} {'Автор':<20} {'Год':<6} {'Доступна':<10}")
-        print("-" * 70)
         for book in found:
             status = "Да" if book['available'] else "Нет"
             print(f"{book['id']:<5} {book['title']:<30} {book['author']:<20} "
                   f"{book['year']:<6} {status:<10}")
-        print("=" * 70)
     else:
         print("Книги не найдены")
 
@@ -192,13 +187,11 @@ def export_available_books(books):
     try:
         with open('resource/available_books.txt', 'w', encoding='utf-8') as file:
             file.write("Список доступных книг:\n")
-            file.write("=" * 50 + "\n")
             for book in available:
                 file.write(f"ID: {book['id']}\n")
                 file.write(f"Название: {book['title']}\n")
                 file.write(f"Автор: {book['author']}\n")
                 file.write(f"Год: {book['year']}\n")
-                file.write("-" * 30 + "\n")
 
         print(f"Экспортировано {len(available)} книг в файл available_books.txt")
     except Exception:
@@ -215,9 +208,7 @@ def main():
     books = load_books()
 
     while True:
-        print("\n" + "=" * 50)
         print("СИСТЕМА УЧЕТА КНИГ В БИБЛИОТЕКЕ")
-        print("=" * 50)
         print("1. Просмотр всех книг")
         print("2. Поиск по автору/названию")
         print("3. Добавление новой книги")

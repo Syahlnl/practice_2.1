@@ -68,15 +68,12 @@ def get_key():
 
 
 def main():
-    print("=" * 50)
     print("ШИФРОВАНИЕ БИНАРНЫХ ФАЙЛОВ")
-    print("=" * 50)
 
     while True:
         print("\n1. Зашифровать файл")
         print("2. Расшифровать файл")
         print("3. Выйти")
-        print("=" * 30)
 
         choice = input("Выберите действие (1-3): ").strip()
 
